@@ -1,0 +1,8 @@
+{
+  "name": "APU social ",
+  "description": "A privacy-first social platform with group feeds, real-time chat, AI scheduling, and synchronized music.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
