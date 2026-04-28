@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+build/
+.vite/
+
+# Environment and Secrets
+.env
+.env.*
+!.env.example
+
+# Version Control
+.git/
+
+# Package Manager Locks
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Local database / temp files
+*.db
+*.sqlite
+.gemini/
+tmp/
