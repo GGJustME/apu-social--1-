@@ -14,10 +14,16 @@ Follow these steps to configure your Supabase project for Nexus Phase 1.
 ### 1. SQL Execution Order
 1. `supabase/schema.sql` (Creates tables, triggers, and RPC functions)
 2. `supabase/rls_policies.sql` (Enables Row Level Security)
-3. `supabase/storage_policies.sql` (Secures file storage)
-4. `supabase/seed.sql` (Sets platform limits)
+3. `supabase/realtime.sql` (Enables real-time sync for chat)
+4. `supabase/storage_policies.sql` (Secures file storage)
+5. `supabase/seed.sql` (Sets platform limits)
 
-### 2. Manual Storage Setup
+### 2. Realtime Configuration
+Run `supabase/realtime.sql` to enable Supabase Realtime for the `messages` table.
+- Without this, messages are stored successfully, but other users will only see them after a manual refresh.
+- This step is required for cross-account live chat functionality.
+
+### 3. Manual Storage Setup
 1. Navigate to **Storage** in the sidebar.
 2. Create two buckets:
    - `files` (Private) -> Set "Maximum File Size" to 50MB.
