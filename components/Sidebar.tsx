@@ -2,7 +2,7 @@
 import * as React from 'react';
 import { useState } from 'react';
 import { Group, User } from '../types';
-import { Plus, Settings, Volume2, User as UserIcon, X, Check, Briefcase, LogOut } from 'lucide-react';
+import { Plus, Settings, Volume2, User as UserIcon, X, Check, Briefcase, LogOut, Search } from 'lucide-react';
 
 interface SidebarProps {
   groups: Group[];
@@ -11,6 +11,7 @@ interface SidebarProps {
   currentUser: User;
   onOpenProfile: () => void;
   onCreateGroup: (name: string, isPrivate: boolean, type: 'social' | 'work') => void;
+  onOpenJoinModal: () => void;
   onLogout: () => void;
 }
 
@@ -21,6 +22,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentUser,
   onOpenProfile,
   onCreateGroup,
+  onOpenJoinModal,
   onLogout
 }) => {
   const [isCreating, setIsCreating] = useState(false);
@@ -50,8 +52,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Groups List */}
       <div className="flex-1 overflow-y-auto py-4 space-y-2">
-        <div className="px-4 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500 hidden md:block">
-          Your Groups
+        <div className="px-4 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500 hidden md:block flex items-center justify-between">
+          <span>Your Groups</span>
         </div>
         
         {groups.map(group => (
@@ -131,15 +133,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
              </div>
            </form>
         ) : (
-          <button 
-            onClick={() => setIsCreating(true)}
-            className="w-full flex items-center px-3 md:px-6 py-3 text-slate-400 hover:text-white transition-colors"
-          >
-            <div className="w-10 h-10 rounded-xl border-2 border-dashed border-slate-600 flex items-center justify-center shrink-0">
-              <Plus size={20} />
-            </div>
-            <span className="hidden md:block ml-3 font-medium">Create Group</span>
-          </button>
+          <div className="px-3 md:px-4 py-2 space-y-1">
+            <button 
+              onClick={() => setIsCreating(true)}
+              className="w-full flex items-center px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all"
+            >
+              <div className="w-8 h-8 rounded-lg border-2 border-dashed border-slate-600 flex items-center justify-center shrink-0 group-hover:border-slate-400">
+                <Plus size={16} />
+              </div>
+              <span className="hidden md:block ml-3 text-sm font-medium">Create Group</span>
+            </button>
+            <button 
+              onClick={onOpenJoinModal}
+              className="w-full flex items-center px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all"
+            >
+              <div className="w-8 h-8 rounded-lg border-2 border-dashed border-slate-600 flex items-center justify-center shrink-0">
+                <Search size={16} />
+              </div>
+              <span className="hidden md:block ml-3 text-sm font-medium">Join Group</span>
+            </button>
+          </div>
         )}
       </div>
 

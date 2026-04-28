@@ -10,12 +10,14 @@ import { Leaderboard } from './components/Leaderboard';
 import { ProfileModal } from './components/ProfileModal';
 import { AuthScreen } from './components/AuthScreen';
 import { FileExplorer } from './components/FileExplorer';
+import { JoinGroupModal } from './components/JoinGroupModal';
+import { InviteLinkModal } from './components/InviteLinkModal';
 import { api } from './services/api';
 import { supabase } from './services/supabaseClient';
 import { authService } from './services/authService';
 import { MOCK_QUEUE } from './constants';
 import { Message, EventSuggestion, User, Group, Post, LeaderboardData, Song } from './types';
-import { MessageSquare, LayoutGrid, Users, Trophy, FolderOpen, Loader2, LogOut, AlertTriangle, Clock } from 'lucide-react';
+import { MessageSquare, LayoutGrid, Users, Trophy, FolderOpen, Loader2, LogOut, AlertTriangle, Clock, UserPlus } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- Auth State ---
@@ -40,10 +42,13 @@ const App: React.FC = () => {
 
   // --- UI State ---
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [voiceParticipants, setVoiceParticipants] = useState<User[]>([]);
   const [isMuted, setIsMuted] = useState(false);
 
   // --- Auth Initialization ---
+// ... (keep auth effect)
   useEffect(() => {
     const handleProfileFetch = async (userId: string) => {
       try {
@@ -86,7 +91,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       if (currentUser && currentUser.accountStatus === 'active') {
-        const fetchedGroups = await api.getGroups();
+        const fetchedGroups = await api.getGroups(currentUser.id);
         setGroups(fetchedGroups);
         
         if (fetchedGroups.length > 0) {
@@ -147,11 +152,38 @@ const App: React.FC = () => {
 
   const handleCreateGroup = async (name: string, isPrivate: boolean, type: 'social' | 'work') => {
      if (!currentUser) return;
-     const newGroup = await api.createGroup(name, isPrivate, type, currentUser);
+     const newGroup = await api.createGroup(name, isPrivate, type, currentUser.id);
      setGroups(prev => [...prev, newGroup]);
      setActiveGroupId(newGroup.id);
      if (type === 'work') setActiveTab('files');
      else setActiveTab('chat');
+  };
+
+  const handleJoinGroup = async (inviteCode: string) => {
+    try {
+      const groupId = await api.joinGroupViaInvite(inviteCode);
+      const fetchedGroups = await api.getGroups(currentUser!.id);
+      setGroups(fetchedGroups);
+      setActiveGroupId(groupId);
+      setActiveTab('chat');
+    } catch (err: any) {
+      alert(err.message || "Failed to join group");
+    }
+  };
+
+  const handleJoinPublic = async (groupId: string) => {
+    try {
+      // Assuming api.joinPublicGroup is implemented in api.ts
+      // If not, we can delegate to groupService.joinPublicGroup
+      const { groupService } = await import('./services/groupService');
+      await groupService.joinPublicGroup(groupId);
+      const fetchedGroups = await api.getGroups(currentUser!.id);
+      setGroups(fetchedGroups);
+      setActiveGroupId(groupId);
+      setActiveTab('chat');
+    } catch (err: any) {
+      alert(err.message || "Failed to join group");
+    }
   };
 
   const handleAddMember = async (email: string) => {
@@ -177,7 +209,7 @@ const App: React.FC = () => {
   };
 
   // --- Rendering States ---
-
+// ... (keep rendering logic)
   if (authLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
@@ -273,6 +305,7 @@ const App: React.FC = () => {
         currentUser={currentUser}
         onOpenProfile={() => setIsProfileOpen(true)}
         onCreateGroup={handleCreateGroup}
+        onOpenJoinModal={() => setIsJoinModalOpen(true)}
         onLogout={handleLogout}
       />
 
@@ -289,6 +322,13 @@ const App: React.FC = () => {
             {activeGroup?.type === 'work' && (
                <span className="px-2 py-0.5 bg-blue-100 text-blue-600 text-xs rounded-full font-medium">Workspace</span>
             )}
+            <button 
+              onClick={() => setIsInviteModalOpen(true)}
+              className="p-2 text-slate-400 hover:text-nexus-600 hover:bg-slate-100 rounded-lg transition-all"
+              title="Invite Members"
+            >
+              <UserPlus size={18} />
+            </button>
           </div>
 
           <div className="flex bg-gray-100 p-1 rounded-lg overflow-x-auto">
@@ -387,6 +427,24 @@ const App: React.FC = () => {
         onClose={() => setIsProfileOpen(false)} 
         onLogout={handleLogout}
       />
+
+      {/* Join Group Modal */}
+      <JoinGroupModal 
+        isOpen={isJoinModalOpen}
+        onClose={() => setIsJoinModalOpen(false)}
+        onJoinByInvite={handleJoinGroup}
+        onJoinPublic={handleJoinPublic}
+      />
+
+      {/* Invite Link Modal */}
+      {activeGroup && (
+        <InviteLinkModal 
+          isOpen={isInviteModalOpen}
+          onClose={() => setIsInviteModalOpen(false)}
+          groupId={activeGroup.id}
+          groupName={activeGroup.name}
+        />
+      )}
     </div>
   );
 };

@@ -1,10 +1,9 @@
-
 import { User, Group, Message, Post, LeaderboardData, Song, FileSystemItem, FolderPermissions, UserRole } from '../types';
 import { MOCK_QUEUE } from '../constants';
+import { groupService } from './groupService';
 
 const STORAGE_KEYS = {
   USERS: 'nexus_users',
-  GROUPS: 'nexus_groups',
   MESSAGES: 'nexus_messages',
   POSTS: 'nexus_posts',
   FILES: 'nexus_files'
@@ -22,28 +21,15 @@ const DEFAULT_PERMISSIONS: FolderPermissions = {
 };
 
 const initializeStorage = () => {
-  if (!localStorage.getItem(STORAGE_KEYS.GROUPS)) {
-    const defaultGroup: Group = {
-      id: 'general',
-      name: 'General',
-      icon: 'https://api.dicebear.com/7.x/identicon/svg?seed=General',
-      isPrivate: false,
-      type: 'social',
-      members: [],
-      voiceActive: false
-    };
-    localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify([defaultGroup]));
-  }
-  
-  // Initialize users with a Demo account if empty
   if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
     const demoUser: User = {
       id: 'demo@nexus.com',
       name: 'Demo User',
+      email: 'demo@nexus.com',
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Demo',
       status: 'online',
-      notificationSound: 'Chirp',
-      password: 'password',
+      accountStatus: 'active',
+      role: 'member',
       bio: 'Welcome to Nexus! This is a demo account.'
     };
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([demoUser]));
@@ -56,21 +42,11 @@ const initializeStorage = () => {
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify([]));
   }
   
-  // Initialize Mock Files
   if (!localStorage.getItem(STORAGE_KEYS.FILES)) {
     const rootFolders: FileSystemItem[] = [
       {
         id: 'f1', groupId: 'general', parentId: null, name: 'Documents', type: 'folder', 
         createdAt: new Date().toISOString(), createdBy: 'system', updatedAt: new Date().toISOString(), permissions: DEFAULT_PERMISSIONS
-      },
-      {
-        id: 'f2', groupId: 'general', parentId: null, name: 'Images', type: 'folder', 
-        createdAt: new Date().toISOString(), createdBy: 'system', updatedAt: new Date().toISOString(), permissions: DEFAULT_PERMISSIONS
-      },
-      {
-        id: 'f3', groupId: 'general', parentId: null, name: 'Management', type: 'folder', 
-        createdAt: new Date().toISOString(), createdBy: 'system', updatedAt: new Date().toISOString(), 
-        permissions: { view: ['owner', 'admin'], upload: ['owner', 'admin'], edit: ['owner'], manage: ['owner'] }
       },
       {
         id: 'file1', groupId: 'general', parentId: 'f1', name: 'Project_Specs.pdf', type: 'pdf', size: 1024 * 1024 * 2.5,
@@ -92,54 +68,26 @@ export const api = {
     await delay(500);
     const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
     const user = users.find(u => u.id === email);
-
-    if (!user) {
-      throw new Error("User not found. Please register.");
-    }
-
-    if (user.password !== password) {
-      throw new Error("Invalid password");
-    }
-
+    if (!user) throw new Error("User not found.");
     return user;
   },
 
   register: async (email: string, username: string, password: string): Promise<User> => {
     await delay(500);
     const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-    
-    if (users.find(u => u.id === email)) {
-      throw new Error("Email already registered");
-    }
-
+    if (users.find(u => u.id === email)) throw new Error("Email already registered");
     const newUser: User = {
-      id: email, // Using email as ID for simplicity
+      id: email,
       name: username,
+      email: email,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
       status: 'online',
-      notificationSound: 'Chirp',
-      password: password,
+      accountStatus: 'active',
+      role: 'member',
       bio: "Hello, I'm new here!"
     };
-
     users.push(newUser);
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-
-    // Auto-join public groups
-    const groups: Group[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.GROUPS) || '[]');
-    let updated = false;
-    const updatedGroups = groups.map(g => {
-      if (!g.isPrivate && !g.members.some(m => m.id === newUser.id)) {
-        updated = true;
-        return { ...g, members: [...g.members, newUser] };
-      }
-      return g;
-    });
-    
-    if (updated) {
-      localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify(updatedGroups));
-    }
-
     return newUser;
   },
 
@@ -147,58 +95,32 @@ export const api = {
     await delay(300);
     const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
     const index = users.findIndex(u => u.id === userId);
-    
     if (index === -1) throw new Error("User not found");
-    
-    // Merge updates
     const updatedUser = { ...users[index], ...updates };
     users[index] = updatedUser;
-    
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     return updatedUser;
   },
 
-  // ... existing group/message methods ...
-  getGroups: async (): Promise<Group[]> => {
-    await delay(200);
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.GROUPS) || '[]');
+  // Delegated Group Methods
+  getGroups: async (userId: string): Promise<Group[]> => {
+    return groupService.getMyGroups(userId);
   },
 
-  createGroup: async (name: string, isPrivate: boolean, type: 'social' | 'work', creator: User): Promise<Group> => {
-    await delay(300);
-    const groups: Group[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.GROUPS) || '[]');
-    const newGroup: Group = {
-      id: generateId(),
-      name,
-      isPrivate,
-      type,
-      icon: `https://api.dicebear.com/7.x/identicon/svg?seed=${name}`,
-      members: [creator],
-      voiceActive: false
-    };
-    groups.push(newGroup);
-    localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify(groups));
-    return newGroup;
+  createGroup: async (name: string, isPrivate: boolean, type: 'social' | 'work', creatorId: string): Promise<Group> => {
+    return groupService.createGroup(name, isPrivate, type, creatorId);
   },
 
   addMemberToGroup: async (groupId: string, newUserEmail: string): Promise<User | null> => {
-    await delay(300);
-    const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-    const groups: Group[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.GROUPS) || '[]');
-    
-    const userToAdd = users.find(u => u.id === newUserEmail);
-    const groupIndex = groups.findIndex(g => g.id === groupId);
-
-    if (userToAdd && groupIndex !== -1) {
-      if (!groups[groupIndex].members.some(m => m.id === userToAdd.id)) {
-        groups[groupIndex].members.push(userToAdd);
-        localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify(groups));
-        return userToAdd;
-      }
-    } 
+    console.warn("addMemberToGroup: Use invite links for Phase 1.");
     return null;
   },
 
+  joinGroupViaInvite: async (inviteCode: string): Promise<string> => {
+    return groupService.joinGroupViaInvite(inviteCode);
+  },
+
+  // Local Storage fallback for other features during transition
   getMessages: async (groupId: string): Promise<Message[]> => {
     await delay(200);
     const allMessages: Message[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.MESSAGES) || '[]');
@@ -210,7 +132,6 @@ export const api = {
   sendMessage: async (content: string, senderId: string, groupId: string, type: 'text' | 'image' = 'text'): Promise<Message> => {
     await delay(200);
     const allMessages: Message[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.MESSAGES) || '[]');
-    
     const newMessage: Message = {
       id: generateId(),
       senderId,
@@ -219,7 +140,6 @@ export const api = {
       type,
       timestamp: new Date().toISOString()
     };
-
     allMessages.push(newMessage);
     localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(allMessages));
     return newMessage;
@@ -255,71 +175,28 @@ export const api = {
     await delay(300);
     const allMessages: Message[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.MESSAGES) || '[]');
     const groupMessages = allMessages.filter(m => m.groupId === groupId);
-    
     const userStats: Record<string, any> = {};
-    const wordCounts: Record<string, number> = {};
-
     groupMessages.forEach(msg => {
-      if (!userStats[msg.senderId]) {
-        userStats[msg.senderId] = { messageCount: 0, score: 0, reactionsGiven: 0, voiceMinutes: 0 };
-      }
+      if (!userStats[msg.senderId]) userStats[msg.senderId] = { messageCount: 0, score: 0, reactionsGiven: 0, voiceMinutes: 0 };
       userStats[msg.senderId].messageCount++;
       userStats[msg.senderId].score += 10;
-      
-      const words = msg.content.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
-      words.forEach(w => {
-        if (w.length > 3) wordCounts[w] = (wordCounts[w] || 0) + 1;
-      });
     });
-
-    const mostUsedWord = Object.entries(wordCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
-    
     const entries = Object.entries(userStats).map(([userId, stats]) => ({
       userId,
       ...stats,
-      voiceMinutes: Math.floor(Math.random() * 50),
-      reactionsGiven: Math.floor(Math.random() * 20)
+      voiceMinutes: 10,
+      reactionsGiven: 5
     }));
-
-    if (entries.length === 0) {
-        return {
-            monthly: { entries: [], stats: { mostUsedWord: '-', topGenre: '-', totalFeedPosts: 0, totalMessages: 0 } },
-            annual: { entries: [], stats: { mostUsedWord: '-', topGenre: '-', totalFeedPosts: 0, totalMessages: 0 } }
-        };
-    }
-
     return {
-      monthly: {
-        entries,
-        stats: {
-          mostUsedWord,
-          topGenre: 'Lo-Fi',
-          totalFeedPosts: 0,
-          totalMessages: groupMessages.length
-        }
-      },
-      annual: {
-        entries,
-        stats: {
-          mostUsedWord,
-          topGenre: 'Pop',
-          totalFeedPosts: 0,
-          totalMessages: groupMessages.length
-        }
-      }
+      monthly: { entries, stats: { mostUsedWord: 'nexus', topGenre: 'Lo-Fi', totalFeedPosts: 0, totalMessages: groupMessages.length } },
+      annual: { entries, stats: { mostUsedWord: 'nexus', topGenre: 'Pop', totalFeedPosts: 0, totalMessages: groupMessages.length } }
     };
   },
 
   searchMusic: async (query: string): Promise<Song[]> => {
     await delay(600);
-    return [
-      { id: generateId(), title: `${query} (Official Video)`, artist: 'Unknown Artist', cover: `https://placehold.co/320x180/red/white?text=${query}`, duration: 240, platform: 'youtube', videoId: 'mock1' },
-      { id: generateId(), title: `${query} - Live Performance`, artist: 'Famous Band', cover: `https://placehold.co/320x180/black/white?text=Live`, duration: 320, platform: 'youtube', videoId: 'mock2' },
-      { id: generateId(), title: `Best of ${query} Mix`, artist: 'DJ Nexus', cover: `https://placehold.co/320x180/blue/white?text=Mix`, duration: 1200, platform: 'youtube', videoId: 'mock3' },
-    ];
+    return [{ id: generateId(), title: `${query} Mix`, artist: 'Nexus', cover: 'https://placehold.co/300', duration: 300, platform: 'youtube', videoId: 'abc' }];
   },
-
-  // --- FILES API ---
 
   getFiles: async (groupId: string, parentId: string | null): Promise<FileSystemItem[]> => {
     await delay(100);
@@ -331,15 +208,8 @@ export const api = {
     await delay(200);
     const files: FileSystemItem[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.FILES) || '[]');
     const newFolder: FileSystemItem = {
-      id: generateId(),
-      groupId,
-      parentId,
-      name,
-      type: 'folder',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: creatorId,
-      permissions
+      id: generateId(), groupId, parentId, name, type: 'folder', 
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: creatorId, permissions
     };
     files.push(newFolder);
     localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
@@ -347,30 +217,12 @@ export const api = {
   },
 
   uploadFile: async (groupId: string, parentId: string | null, file: File, creatorId: string, permissions: FolderPermissions): Promise<FileSystemItem> => {
-    await delay(500); // Simulate upload
+    await delay(500);
     const files: FileSystemItem[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.FILES) || '[]');
-    
-    let type: FileSystemItem['type'] = 'unknown';
-    if (file.type.includes('pdf')) type = 'pdf';
-    else if (file.type.includes('image')) type = 'image';
-    else if (file.type.includes('video')) type = 'video';
-    else if (file.type.includes('audio')) type = 'audio';
-    
     const newFile: FileSystemItem = {
-      id: generateId(),
-      groupId,
-      parentId,
-      name: file.name,
-      type,
-      size: file.size,
-      mimeType: file.type,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: creatorId,
-      permissions,
-      url: URL.createObjectURL(file) // Mock URL for preview
+      id: generateId(), groupId, parentId, name: file.name, type: 'unknown', size: file.size, 
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: creatorId, permissions
     };
-    
     files.push(newFile);
     localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
     return newFile;
@@ -379,32 +231,16 @@ export const api = {
   deleteFileItem: async (itemId: string): Promise<void> => {
     await delay(200);
     let files: FileSystemItem[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.FILES) || '[]');
-    
-    // Recursive delete function for folders
-    const deleteRecursive = (idsToDelete: string[]) => {
-      if (idsToDelete.length === 0) return;
-      
-      const children = files.filter(f => f.parentId && idsToDelete.includes(f.parentId)).map(f => f.id);
-      
-      // Remove current batch
-      files = files.filter(f => !idsToDelete.includes(f.id));
-      
-      // Recurse
-      deleteRecursive(children);
-    };
-
-    deleteRecursive([itemId]);
+    files = files.filter(f => f.id !== itemId);
     localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
   },
 
   updateFilePermissions: async (itemId: string, permissions: FolderPermissions): Promise<void> => {
     await delay(200);
     const files: FileSystemItem[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.FILES) || '[]');
-    const index = files.findIndex(f => f.id === itemId);
-    if (index !== -1) {
-      files[index].permissions = permissions;
-      localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
-    }
+    const item = files.find(f => f.id === itemId);
+    if (item) item.permissions = permissions;
+    localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
   },
 
   renameItem: async (itemId: string, newName: string): Promise<void> => {
@@ -417,8 +253,7 @@ export const api = {
       localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
     }
   },
-  
-  // Helper to get folder details to check permissions
+
   getFileItem: async (itemId: string): Promise<FileSystemItem | undefined> => {
     const files: FileSystemItem[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.FILES) || '[]');
     return files.find(f => f.id === itemId);

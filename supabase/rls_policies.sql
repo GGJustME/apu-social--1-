@@ -47,17 +47,45 @@ DROP POLICY IF EXISTS "Profiles: Admin full access" ON profiles;
 CREATE POLICY "Profiles: Admin full access" ON profiles FOR ALL USING (is_admin());
 
 -- Groups
-DROP POLICY IF EXISTS "Groups: Active view public" ON groups;
-CREATE POLICY "Groups: Active view public" ON groups FOR SELECT USING (is_active() AND is_private = FALSE);
+DROP POLICY IF EXISTS "Groups: Active view public" ON public.groups;
+CREATE POLICY "Groups: Active view public" ON public.groups FOR SELECT TO authenticated USING (is_active() AND is_private = FALSE);
 
-DROP POLICY IF EXISTS "Groups: Members view private" ON groups;
-CREATE POLICY "Groups: Members view private" ON groups FOR SELECT USING (is_group_member(id));
+DROP POLICY IF EXISTS "Groups: Members view private" ON public.groups;
+CREATE POLICY "Groups: Members view private" ON public.groups FOR SELECT TO authenticated USING (is_group_member(id));
 
-DROP POLICY IF EXISTS "Groups: Active create" ON groups;
-CREATE POLICY "Groups: Active create" ON groups FOR INSERT WITH CHECK (is_active() AND owner_id = auth.uid());
+DROP POLICY IF EXISTS "Groups: Owner/Admin view own groups" ON public.groups;
+CREATE POLICY "Groups: Owner/Admin view own groups" ON public.groups FOR SELECT TO authenticated USING (owner_id = auth.uid() OR public.is_admin());
 
-DROP POLICY IF EXISTS "Groups: Owner/Admin update" ON groups;
-CREATE POLICY "Groups: Owner/Admin update" ON groups FOR UPDATE USING (owner_id = auth.uid() OR is_admin());
+DROP POLICY IF EXISTS "Groups: Active create" ON public.groups;
+CREATE POLICY "Groups: Active create" ON public.groups FOR INSERT TO authenticated WITH CHECK (is_active() AND owner_id = auth.uid());
+
+DROP POLICY IF EXISTS "Groups: Owner/Admin update" ON public.groups;
+CREATE POLICY "Groups: Owner/Admin update" ON public.groups FOR UPDATE TO authenticated USING (owner_id = auth.uid() OR public.is_admin());
+
+-- Group Invites
+DROP POLICY IF EXISTS "Invites: View" ON public.group_invites;
+CREATE POLICY "Invites: View" ON public.group_invites FOR SELECT TO authenticated USING (
+  public.is_admin() 
+  OR EXISTS (SELECT 1 FROM public.groups WHERE id = group_id AND owner_id = auth.uid())
+);
+
+DROP POLICY IF EXISTS "Invites: Insert" ON public.group_invites;
+CREATE POLICY "Invites: Insert" ON public.group_invites FOR INSERT TO authenticated WITH CHECK (
+  created_by = auth.uid()
+  AND (public.is_admin() OR EXISTS (SELECT 1 FROM public.groups WHERE id = group_id AND owner_id = auth.uid()))
+);
+
+DROP POLICY IF EXISTS "Invites: Update" ON public.group_invites;
+CREATE POLICY "Invites: Update" ON public.group_invites FOR UPDATE TO authenticated USING (
+  public.is_admin() OR EXISTS (SELECT 1 FROM public.groups WHERE id = group_id AND owner_id = auth.uid())
+) WITH CHECK (
+  public.is_admin() OR EXISTS (SELECT 1 FROM public.groups WHERE id = group_id AND owner_id = auth.uid())
+);
+
+DROP POLICY IF EXISTS "Invites: Delete" ON public.group_invites;
+CREATE POLICY "Invites: Delete" ON public.group_invites FOR DELETE TO authenticated USING (
+  public.is_admin() OR EXISTS (SELECT 1 FROM public.groups WHERE id = group_id AND owner_id = auth.uid())
+);
 
 -- Group Members (Joining Restricted to RPC)
 DROP POLICY IF EXISTS "Members: View" ON group_members;

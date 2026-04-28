@@ -37,6 +37,17 @@ export interface Group {
   type: 'social' | 'work';
   members: User[];
   voiceActive: boolean;
+  ownerId?: string;
+  memberCount?: number;
+}
+
+export interface Invite {
+  id: string;
+  groupId: string;
+  inviteCode: string;
+  isRevoked: boolean;
+  createdBy: string;
+  createdAt: string;
 }
 
 export interface Post {
