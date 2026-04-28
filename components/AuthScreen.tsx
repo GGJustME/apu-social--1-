@@ -1,49 +1,20 @@
 import * as React from 'react';
 import { useState } from 'react';
-import { Mail, ArrowRight, CheckCircle2, Lock, User, AlertCircle } from 'lucide-react';
+import { LogIn, AlertCircle } from 'lucide-react';
 
 interface AuthScreenProps {
-  onLogin: (email: string, password: string, name?: string, isRegister?: boolean) => Promise<void>;
+  onGoogleLogin: () => Promise<void>;
 }
 
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
-  const [authMode, setAuthMode] = useState<'login' | 'register' | 'verify'>('login');
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
+export const AuthScreen: React.FC<AuthScreenProps> = ({ onGoogleLogin }) => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGoogleLogin = async () => {
     setError('');
     setIsLoading(true);
-
     try {
-      if (authMode === 'login') {
-          if (!email || !password) {
-              throw new Error("Email and password are required");
-          }
-          await onLogin(email, password);
-      } 
-      else if (authMode === 'register') {
-          if (!email || !password || !name) {
-              throw new Error("All fields are required");
-          }
-          // Simulate check for existing user before verify step if possible, 
-          // but for now just move to verify as per flow
-          setAuthMode('verify');
-          setIsLoading(false); // Stop loading to let user input code
-          return;
-      }
-      else if (authMode === 'verify') {
-          if (verificationCode !== '123456') {
-              throw new Error("Invalid verification code. Try '123456'");
-          }
-          // Proceed with registration
-          await onLogin(email, password, name, true);
-      }
+      await onGoogleLogin();
     } catch (err: any) {
       setError(err.message || "Authentication failed");
       setIsLoading(false);
@@ -55,19 +26,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
       <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl shadow-nexus-500/5 border border-white">
         
         {/* Header Logo */}
-        <div className="text-center mb-8">
-          <div className="mx-auto h-16 w-16 bg-gradient-to-tr from-nexus-600 to-nexus-400 rounded-2xl flex items-center justify-center text-white text-3xl font-bold mb-4 shadow-lg shadow-nexus-500/30 transform rotate-3">
+        <div className="text-center mb-10">
+          <div className="mx-auto h-20 w-20 bg-gradient-to-tr from-nexus-600 to-nexus-400 rounded-2xl flex items-center justify-center text-white text-4xl font-bold mb-6 shadow-lg shadow-nexus-500/30 transform rotate-3">
             N
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">
-            {authMode === 'register' ? "Create Account" : authMode === 'verify' ? "Verify Email" : "Welcome Back"}
+            Nexus Social
           </h2>
           <p className="mt-2 text-sm text-slate-500 font-medium">
-            {authMode === 'register' 
-                ? "Join the community today" 
-                : authMode === 'verify' 
-                ? "We sent a code to " + email 
-                : "Sign in to your Nexus dashboard"}
+            Sign in to your Nexus dashboard
           </p>
         </div>
 
@@ -78,132 +45,44 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
           </div>
         )}
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          
-          {/* Registration Fields */}
-          {authMode === 'register' && (
-            <div className="space-y-1 animate-in slide-in-from-top-2 fade-in">
-              <label className="text-xs font-semibold text-slate-500 uppercase ml-1">Username</label>
-              <div className="relative">
-                <User className="absolute left-3 top-3.5 text-slate-400" size={18} />
-                <input
-                  type="text"
-                  required
-                  className="block w-full rounded-xl border-slate-200 bg-slate-50 pl-10 pr-3 py-3 text-slate-900 placeholder-slate-400 focus:border-nexus-500 focus:ring-nexus-500/20 focus:bg-white transition-all outline-none border"
-                  placeholder="e.g. AlexRivera"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Login/Register Fields */}
-          {(authMode === 'login' || authMode === 'register') && (
-            <>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase ml-1">Email</label>
-                <div className="relative">
-                    <Mail className="absolute left-3 top-3.5 text-slate-400" size={18} />
-                    <input
-                    type="email"
-                    required
-                    className="block w-full rounded-xl border-slate-200 bg-slate-50 pl-10 pr-3 py-3 text-slate-900 placeholder-slate-400 focus:border-nexus-500 focus:ring-nexus-500/20 focus:bg-white transition-all outline-none border"
-                    placeholder="name@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase ml-1">Password</label>
-                <div className="relative">
-                    <Lock className="absolute left-3 top-3.5 text-slate-400" size={18} />
-                    <input
-                    type="password"
-                    required
-                    className="block w-full rounded-xl border-slate-200 bg-slate-50 pl-10 pr-3 py-3 text-slate-900 placeholder-slate-400 focus:border-nexus-500 focus:ring-nexus-500/20 focus:bg-white transition-all outline-none border"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    />
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Verification Field */}
-          {authMode === 'verify' && (
-             <div className="space-y-4 animate-in slide-in-from-right-4 fade-in">
-                <div className="flex justify-center my-4">
-                    <div className="bg-green-100 p-3 rounded-full text-green-600">
-                        <Mail size={32} />
-                    </div>
-                </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-500 uppercase ml-1">Verification Code</label>
-                    <input
-                    type="text"
-                    required
-                    autoFocus
-                    className="block w-full text-center tracking-[0.5em] text-2xl font-bold rounded-xl border-slate-200 bg-white py-4 text-slate-900 placeholder-slate-300 focus:border-nexus-500 focus:ring-nexus-500/20 transition-all outline-none border"
-                    placeholder="000000"
-                    maxLength={6}
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    />
-                    <p className="text-center text-xs text-slate-400 mt-2">Use code <b>123456</b> for demo</p>
-                </div>
-             </div>
-          )}
-
+        <div className="space-y-4">
           <button
-            type="submit"
+            onClick={handleGoogleLogin}
             disabled={isLoading}
-            className="group relative flex w-full justify-center items-center gap-2 rounded-xl bg-nexus-600 px-4 py-3.5 text-sm font-semibold text-white hover:bg-nexus-700 hover:shadow-lg hover:shadow-nexus-600/20 focus:outline-none focus:ring-2 focus:ring-nexus-500 focus:ring-offset-2 transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-6"
+            className="group relative flex w-full justify-center items-center gap-3 rounded-xl bg-white border border-slate-200 px-4 py-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:shadow-md transition-all disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-nexus-600/30 border-t-nexus-600 rounded-full animate-spin" />
             ) : (
-                <>
-                    {authMode === 'login' && "Sign In"}
-                    {authMode === 'register' && "Create Account"}
-                    {authMode === 'verify' && "Verify & Login"}
-                    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                </>
+              <>
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path
+                    fill="currentColor"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  />
+                </svg>
+                Continue with Google
+              </>
             )}
           </button>
-        </form>
+        </div>
 
-        <div className="mt-8 text-center space-y-4">
-            {/* Demo Hint */}
-            {authMode === 'login' && (
-              <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-xs text-slate-500">
-                <span className="font-semibold text-slate-700">Demo Access:</span> demo@nexus.com / password
-              </div>
-            )}
-
-            {authMode === 'verify' ? (
-                <button 
-                    onClick={() => setAuthMode('register')}
-                    className="text-sm font-medium text-slate-500 hover:text-nexus-600 transition-colors"
-                >
-                    Change Email
-                </button>
-            ) : (
-                <p className="text-sm text-slate-500">
-                    {authMode === 'register' ? "Already have an account? " : "Don't have an account? "}
-                    <button 
-                    onClick={() => {
-                        setAuthMode(authMode === 'login' ? 'register' : 'login');
-                        setError('');
-                    }}
-                    className="font-bold text-nexus-600 hover:text-nexus-500 focus:outline-none hover:underline"
-                    >
-                    {authMode === 'register' ? "Log in" : "Sign up"}
-                    </button>
-                </p>
-            )}
+        <div className="mt-10 text-center">
+          <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">
+            Powered by Supabase Auth
+          </p>
         </div>
       </div>
     </div>

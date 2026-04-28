@@ -1,16 +1,18 @@
+
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { User } from '../types';
-import { X, Bell, Moon, Shield, Volume2, Edit2, Save, Camera } from 'lucide-react';
+import { X, Bell, Moon, Shield, Volume2, Edit2, Save, Camera, LogOut } from 'lucide-react';
 import { api } from '../services/api';
 
 interface ProfileModalProps {
   user: User;
   isOpen: boolean;
   onClose: () => void;
+  onLogout: () => void;
 }
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ user: initialUser, isOpen, onClose }) => {
+export const ProfileModal: React.FC<ProfileModalProps> = ({ user: initialUser, isOpen, onClose, onLogout }) => {
   const [user, setUser] = useState(initialUser);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(user.name);
@@ -45,12 +47,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user: initialUser, i
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 border border-white/20">
-        
+
         {/* Header / Cover Image */}
         <div className="h-40 bg-gradient-to-br from-nexus-600 via-purple-600 to-indigo-700 relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
           <div className="absolute top-0 right-0 p-32 bg-white/10 blur-3xl rounded-full translate-x-10 -translate-y-10"></div>
-          
+
           <button 
             onClick={onClose}
             className="absolute top-4 right-4 text-white/90 hover:text-white bg-black/20 hover:bg-black/30 p-2 rounded-full backdrop-blur-md transition-all z-10"
@@ -75,7 +77,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user: initialUser, i
                         </div>
                     )}
                 </div>
-                
+
                 {!isEditing ? (
                     <button 
                         onClick={() => setIsEditing(true)}
@@ -95,7 +97,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user: initialUser, i
             </div>
 
             <div className="pb-8 space-y-6">
-                
+
                 {/* User Info */}
                 <div>
                     {isEditing ? (
@@ -123,8 +125,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user: initialUser, i
                     ) : (
                         <div>
                             <h2 className="text-3xl font-bold text-slate-900">{user.name}</h2>
-                            <p className="text-nexus-600 font-medium text-sm mb-3">@{user.id}</p>
-                            
+                            <p className="text-nexus-600 font-medium text-sm mb-3">{user.email}</p>
+
                             {user.bio ? (
                                 <p className="text-slate-600 leading-relaxed text-sm">{user.bio}</p>
                             ) : (
@@ -141,6 +143,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user: initialUser, i
                                     />
                                     {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
                                 </span>
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 capitalize">
+                                    {user.role}
+                                </span>
                             </div>
                         </div>
                     )}
@@ -148,7 +153,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user: initialUser, i
 
                 <div className="h-px bg-slate-100 w-full" />
 
-                {/* Settings */}
+                {/* Settings & Actions */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors cursor-pointer group">
                         <div className="flex items-center gap-4">
@@ -163,16 +168,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user: initialUser, i
                         <span className="text-nexus-600 text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity">Change</span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors cursor-pointer border border-transparent hover:border-slate-200">
-                            <Moon className="text-slate-400 mb-2" size={24} />
-                            <span className="text-sm font-semibold text-slate-700">Dark Mode</span>
+                    <button 
+                        onClick={onLogout}
+                        className="w-full flex items-center gap-4 p-3.5 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-colors group"
+                    >
+                        <div className="p-2.5 bg-white text-red-600 rounded-xl shadow-sm border border-red-100 group-hover:border-red-200 transition-all">
+                            <LogOut size={20} />
                         </div>
-                        <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors cursor-pointer border border-transparent hover:border-slate-200">
-                             <Shield className="text-slate-400 mb-2" size={24} />
-                             <span className="text-sm font-semibold text-slate-700">Privacy</span>
-                        </div>
-                    </div>
+                        <span className="font-semibold text-sm">Sign Out of Nexus</span>
+                    </button>
                 </div>
 
             </div>

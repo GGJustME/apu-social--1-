@@ -2,11 +2,13 @@
 export interface User {
   id: string;
   name: string;
+  email: string;
   avatar: string;
   status: 'online' | 'away' | 'offline';
+  accountStatus: 'active' | 'pending' | 'suspended';
+  role: 'admin' | 'member';
   bio?: string;
   notificationSound?: string;
-  password?: string; // For mock auth validation
 }
 
 export type UserRole = 'owner' | 'admin' | 'member';

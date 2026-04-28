@@ -11,13 +11,17 @@ import { ProfileModal } from './components/ProfileModal';
 import { AuthScreen } from './components/AuthScreen';
 import { FileExplorer } from './components/FileExplorer';
 import { api } from './services/api';
+import { supabase } from './services/supabaseClient';
+import { authService } from './services/authService';
 import { MOCK_QUEUE } from './constants';
 import { Message, EventSuggestion, User, Group, Post, LeaderboardData, Song } from './types';
-import { MessageSquare, LayoutGrid, Users, Trophy, FolderOpen } from 'lucide-react';
+import { MessageSquare, LayoutGrid, Users, Trophy, FolderOpen, Loader2, LogOut, AlertTriangle, Clock } from 'lucide-react';
 
 const App: React.FC = () => {
-  // --- Global State ---
+  // --- Auth State ---
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // --- App State ---
   const [groups, setGroups] = useState<Group[]>([]);
@@ -39,30 +43,53 @@ const App: React.FC = () => {
   const [voiceParticipants, setVoiceParticipants] = useState<User[]>([]);
   const [isMuted, setIsMuted] = useState(false);
 
-  // Derived
-  const activeGroup = groups.find(g => g.id === activeGroupId) || groups[0];
+  // --- Auth Initialization ---
+  useEffect(() => {
+    const handleProfileFetch = async (userId: string) => {
+      try {
+        const profile = await authService.getProfile(userId);
+        if (profile) {
+          setCurrentUser(profile);
+        } else {
+          setAuthError("Profile not found. Please contact an admin if this persists.");
+        }
+      } catch (err: any) {
+        setAuthError(err.message || "Failed to load user profile");
+      } finally {
+        setAuthLoading(false);
+      }
+    };
 
-  // --- Initialization ---
-  const refreshData = async (groupId: string) => {
-    if (!groupId) return;
-    const [msgs, feedPosts, lb] = await Promise.all([
-      api.getMessages(groupId),
-      api.getPosts(groupId),
-      api.getLeaderboard(groupId)
-    ]);
-    setMessages(msgs);
-    setPosts(feedPosts);
-    setLeaderboardData(lb);
-  };
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        handleProfileFetch(session.user.id);
+      } else {
+        setAuthLoading(false);
+      }
+    });
 
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        handleProfileFetch(session.user.id);
+      } else {
+        setCurrentUser(null);
+        setAuthLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // --- Data Initialization ---
   useEffect(() => {
     const init = async () => {
-      if (currentUser) {
+      if (currentUser && currentUser.accountStatus === 'active') {
         const fetchedGroups = await api.getGroups();
         setGroups(fetchedGroups);
         
         if (fetchedGroups.length > 0) {
-           // Only set if not already set or invalid
            if (!activeGroupId || !fetchedGroups.find(g => g.id === activeGroupId)) {
              setActiveGroupId(fetchedGroups[0].id);
            }
@@ -83,17 +110,25 @@ const App: React.FC = () => {
     }
   }, [activeGroupId]);
 
-  // --- Handlers ---
+  const refreshData = async (groupId: string) => {
+    if (!groupId) return;
+    const [msgs, feedPosts, lb] = await Promise.all([
+      api.getMessages(groupId),
+      api.getPosts(groupId),
+      api.getLeaderboard(groupId)
+    ]);
+    setMessages(msgs);
+    setPosts(feedPosts);
+    setLeaderboardData(lb);
+  };
 
-  const handleAuth = async (email: string, password: string, name?: string, isRegister?: boolean) => {
-    // Propagate errors to AuthScreen for UI display
-    let user;
-    if (isRegister && name) {
-      user = await api.register(email, name, password);
-    } else {
-      user = await api.login(email, password);
-    }
-    setCurrentUser(user);
+  // --- Handlers ---
+  const handleGoogleLogin = async () => {
+    await authService.signInWithGoogle();
+  };
+
+  const handleLogout = async () => {
+    await authService.signOut();
   };
 
   const handleSendMessage = async (text: string, eventDetails?: EventSuggestion) => {
@@ -115,7 +150,6 @@ const App: React.FC = () => {
      const newGroup = await api.createGroup(name, isPrivate, type, currentUser);
      setGroups(prev => [...prev, newGroup]);
      setActiveGroupId(newGroup.id);
-     // Optionally switch tabs if it's a work group
      if (type === 'work') setActiveTab('files');
      else setActiveTab('chat');
   };
@@ -142,18 +176,85 @@ const App: React.FC = () => {
     setActiveTab('chat');
   };
 
-  if (!currentUser) {
-    return <AuthScreen onLogin={handleAuth} />;
+  // --- Rendering States ---
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 text-nexus-600 animate-spin" />
+          <p className="text-slate-500 font-medium animate-pulse">Initializing Nexus...</p>
+        </div>
+      </div>
+    );
   }
 
-  // Allow empty state if no groups exist yet
-  if (groups.length === 0 && !activeGroupId) {
-     return (
-       <div className="flex h-screen items-center justify-center flex-col">
-         <p className="mb-4">Welcome to Nexus. Creating your workspace...</p>
-       </div>
-     );
+  if (authError) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50 p-6 text-center">
+        <div className="max-w-md bg-white p-8 rounded-3xl shadow-xl border border-white">
+          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle size={32} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Something went wrong</h2>
+          <p className="text-slate-500 mb-8">{authError}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full bg-nexus-600 text-white py-3 rounded-xl font-semibold hover:bg-nexus-700 transition-colors"
+          >
+            Retry Login
+          </button>
+        </div>
+      </div>
+    );
   }
+
+  if (!currentUser) {
+    return <AuthScreen onGoogleLogin={handleGoogleLogin} />;
+  }
+
+  if (currentUser.accountStatus === 'pending') {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50 p-6 text-center">
+        <div className="max-w-md bg-white p-8 rounded-3xl shadow-xl border border-white">
+          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Clock size={32} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Pending Approval</h2>
+          <p className="text-slate-500 mb-8">Your account is waiting for admin approval.</p>
+          <button 
+            onClick={handleLogout}
+            className="flex items-center justify-center gap-2 w-full text-slate-500 font-medium hover:text-red-500 transition-colors"
+          >
+            <LogOut size={18} /> Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (currentUser.accountStatus === 'suspended') {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50 p-6 text-center">
+        <div className="max-w-md bg-white p-8 rounded-3xl shadow-xl border border-white">
+          <div className="w-16 h-16 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle size={32} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Account Suspended</h2>
+          <p className="text-slate-500 mb-8">Your account has been suspended.</p>
+          <button 
+            onClick={handleLogout}
+            className="flex items-center justify-center gap-2 w-full text-slate-500 font-medium hover:text-red-500 transition-colors"
+          >
+            <LogOut size={18} /> Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Derived Active Group
+  const activeGroup = groups.find(g => g.id === activeGroupId) || groups[0];
 
   return (
     <div className="flex h-screen w-screen bg-white">
@@ -172,6 +273,7 @@ const App: React.FC = () => {
         currentUser={currentUser}
         onOpenProfile={() => setIsProfileOpen(true)}
         onCreateGroup={handleCreateGroup}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -248,8 +350,7 @@ const App: React.FC = () => {
             <FileExplorer 
                 groupId={activeGroupId} 
                 currentUser={currentUser}
-                // Mocking role as Owner for demo user, in real app this comes from group members check
-                userRole={currentUser.id === 'demo@nexus.com' ? 'owner' : 'member'} 
+                userRole={currentUser.role} 
             />
           )}
           {activeTab === 'voice' && (
@@ -284,6 +385,7 @@ const App: React.FC = () => {
         user={currentUser} 
         isOpen={isProfileOpen} 
         onClose={() => setIsProfileOpen(false)} 
+        onLogout={handleLogout}
       />
     </div>
   );

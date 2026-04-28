@@ -2,7 +2,7 @@
 import * as React from 'react';
 import { useState } from 'react';
 import { Group, User } from '../types';
-import { Plus, Settings, Volume2, User as UserIcon, X, Check, Briefcase } from 'lucide-react';
+import { Plus, Settings, Volume2, User as UserIcon, X, Check, Briefcase, LogOut } from 'lucide-react';
 
 interface SidebarProps {
   groups: Group[];
@@ -11,6 +11,7 @@ interface SidebarProps {
   currentUser: User;
   onOpenProfile: () => void;
   onCreateGroup: (name: string, isPrivate: boolean, type: 'social' | 'work') => void;
+  onLogout: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -19,7 +20,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectGroup, 
   currentUser,
   onOpenProfile,
-  onCreateGroup
+  onCreateGroup,
+  onLogout
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -157,7 +159,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="text-sm font-medium text-white truncate w-full text-left">{currentUser.name}</span>
             <span className="text-xs text-slate-500 capitalize">{currentUser.status}</span>
           </div>
-          <Settings size={16} className="hidden md:block ml-auto text-slate-500" />
+          <div className="hidden md:flex ml-auto items-center gap-1">
+            <button 
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenProfile();
+                }}
+                className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded-md transition-all"
+            >
+                <Settings size={16} />
+            </button>
+            <button 
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onLogout();
+                }}
+                className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-md transition-all"
+                title="Sign Out"
+            >
+                <LogOut size={16} />
+            </button>
+          </div>
         </button>
       </div>
     </div>
