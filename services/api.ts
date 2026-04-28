@@ -1,6 +1,7 @@
 import { User, Group, Message, Post, LeaderboardData, Song, FileSystemItem, FolderPermissions, UserRole } from '../types';
 import { MOCK_QUEUE } from '../constants';
 import { groupService } from './groupService';
+import { chatService } from './chatService';
 
 const STORAGE_KEYS = {
   USERS: 'nexus_users',
@@ -122,27 +123,11 @@ export const api = {
 
   // Local Storage fallback for other features during transition
   getMessages: async (groupId: string): Promise<Message[]> => {
-    await delay(200);
-    const allMessages: Message[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.MESSAGES) || '[]');
-    return allMessages
-      .filter(m => m.groupId === groupId)
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    return chatService.getMessages(groupId);
   },
 
-  sendMessage: async (content: string, senderId: string, groupId: string, type: 'text' | 'image' = 'text'): Promise<Message> => {
-    await delay(200);
-    const allMessages: Message[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.MESSAGES) || '[]');
-    const newMessage: Message = {
-      id: generateId(),
-      senderId,
-      groupId,
-      content,
-      type,
-      timestamp: new Date().toISOString()
-    };
-    allMessages.push(newMessage);
-    localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(allMessages));
-    return newMessage;
+  sendMessage: async (content: string, senderId: string, groupId: string, type: 'text' | 'image' = 'text', eventDetails?: any): Promise<Message> => {
+    return chatService.sendMessage(content, senderId, groupId, type, eventDetails);
   },
 
   getPosts: async (groupId: string): Promise<Post[]> => {

@@ -15,6 +15,7 @@ import { InviteLinkModal } from './components/InviteLinkModal';
 import { api } from './services/api';
 import { supabase } from './services/supabaseClient';
 import { authService } from './services/authService';
+import { chatService } from './services/chatService';
 import { MOCK_QUEUE } from './constants';
 import { Message, EventSuggestion, User, Group, Post, LeaderboardData, Song } from './types';
 import { MessageSquare, LayoutGrid, Users, Trophy, FolderOpen, Loader2, LogOut, AlertTriangle, Clock, UserPlus } from 'lucide-react';
@@ -127,6 +128,21 @@ const App: React.FC = () => {
     setLeaderboardData(lb);
   };
 
+  // --- Real-time Chat Subscription ---
+  useEffect(() => {
+    if (!activeGroupId) return;
+
+    const cleanup = chatService.subscribeToMessages(activeGroupId, (newMsg) => {
+      setMessages((prev) => {
+        // Prevent duplicate messages (especially when sending from this client)
+        if (prev.some(m => m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
+      });
+    });
+
+    return () => cleanup();
+  }, [activeGroupId]);
+
   // --- Handlers ---
   const handleGoogleLogin = async () => {
     await authService.signInWithGoogle();
@@ -137,10 +153,18 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async (text: string, eventDetails?: EventSuggestion) => {
-    if (!currentUser) return;
-    const newMessage = await api.sendMessage(text, currentUser.id, activeGroupId);
-    setMessages(prev => [...prev, newMessage]);
-    api.getLeaderboard(activeGroupId).then(setLeaderboardData);
+    if (!currentUser || !activeGroupId) return;
+    try {
+      const newMessage = await api.sendMessage(text, currentUser.id, activeGroupId, 'text', eventDetails);
+      // Real-time listener will likely pick this up, but we add it optimistically if not already there
+      setMessages(prev => {
+        if (prev.some(m => m.id === newMessage.id)) return prev;
+        return [...prev, newMessage];
+      });
+      api.getLeaderboard(activeGroupId).then(setLeaderboardData);
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    }
   };
 
   const handleCreatePost = async (content: string) => {

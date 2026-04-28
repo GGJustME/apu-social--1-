@@ -43,8 +43,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
     let eventDetails: EventSuggestion | null = null;
     
-    // Optimistic extraction using AI service
-    eventDetails = await extractEventFromText(textToSend);
+    try {
+      // Optimistic extraction using AI service
+      eventDetails = await extractEventFromText(textToSend);
+    } catch (err) {
+      console.error("Gemini extraction failed:", err);
+      // Fallback: Continue without event details
+    }
 
     onSendMessage(textToSend, eventDetails || undefined);
     setIsProcessing(false);
