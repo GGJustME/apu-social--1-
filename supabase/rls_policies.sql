@@ -85,7 +85,13 @@ CREATE POLICY "Messages: Update/Delete" ON messages FOR ALL USING (sender_id = a
 
 -- Reactions
 DROP POLICY IF EXISTS "Reactions: View" ON message_reactions;
-CREATE POLICY "Reactions: View" ON message_reactions FOR SELECT USING (is_group_member(message_id IN (SELECT id FROM messages WHERE group_id = group_id)));
+CREATE POLICY "Reactions: View" ON message_reactions FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM messages 
+    WHERE messages.id = message_reactions.message_id 
+    AND (is_group_member(messages.group_id) OR is_admin())
+  )
+);
 
 DROP POLICY IF EXISTS "Reactions: Manage own" ON message_reactions;
 CREATE POLICY "Reactions: Manage own" ON message_reactions FOR ALL USING (is_active() AND user_id = auth.uid());

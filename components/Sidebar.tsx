@@ -145,20 +145,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* User Footer */}
       <div className="p-4 border-t border-slate-800 bg-slate-950/50 shrink-0">
-        <button 
-          onClick={onOpenProfile}
-          className="flex items-center w-full p-2 rounded-lg hover:bg-slate-800 transition-colors"
-        >
-          <div className="relative shrink-0">
-            <img src={currentUser.avatar} alt="User" className="w-9 h-9 rounded-full object-cover" />
-            <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 
-              ${currentUser.status === 'online' ? 'bg-green-500' : currentUser.status === 'away' ? 'bg-yellow-500' : 'bg-slate-500'}`} 
-            />
-          </div>
-          <div className="hidden md:flex flex-col items-start ml-3 overflow-hidden">
-            <span className="text-sm font-medium text-white truncate w-full text-left">{currentUser.name}</span>
-            <span className="text-xs text-slate-500 capitalize">{currentUser.status}</span>
-          </div>
+        <div className="flex items-center w-full p-2 rounded-lg transition-colors">
+          <button 
+            onClick={onOpenProfile}
+            className="flex items-center flex-1 min-w-0 hover:bg-slate-800 p-1 rounded-md transition-colors"
+          >
+            <div className="relative shrink-0">
+              <img src={currentUser.avatar} alt="User" className="w-9 h-9 rounded-full object-cover" />
+              <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 
+                ${currentUser.status === 'online' ? 'bg-green-500' : currentUser.status === 'away' ? 'bg-yellow-500' : 'bg-slate-500'}`} 
+              />
+            </div>
+            <div className="hidden md:flex flex-col items-start ml-3 overflow-hidden">
+              <span className="text-sm font-medium text-white truncate w-full text-left">{currentUser.name}</span>
+              <span className="text-xs text-slate-500 capitalize">{currentUser.status}</span>
+            </div>
+          </button>
+          
           <div className="hidden md:flex ml-auto items-center gap-1">
             <button 
                 onClick={(e) => {
@@ -166,6 +169,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenProfile();
                 }}
                 className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded-md transition-all"
+                title="Settings"
             >
                 <Settings size={16} />
             </button>
@@ -180,7 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <LogOut size={16} />
             </button>
           </div>
-        </button>
+        </div>
       </div>
     </div>
   );
