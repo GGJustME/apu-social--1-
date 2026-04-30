@@ -2,12 +2,12 @@ import { User, Group, Message, Post, LeaderboardData, Song, FileSystemItem, Fold
 import { MOCK_QUEUE } from '../constants';
 import { groupService } from './groupService';
 import { chatService } from './chatService';
+import { fileService } from './fileService';
 
 const STORAGE_KEYS = {
   USERS: 'nexus_users',
   MESSAGES: 'nexus_messages',
-  POSTS: 'nexus_posts',
-  FILES: 'nexus_files'
+  POSTS: 'nexus_posts'
 };
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -41,20 +41,6 @@ const initializeStorage = () => {
   }
   if (!localStorage.getItem(STORAGE_KEYS.POSTS)) {
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify([]));
-  }
-  
-  if (!localStorage.getItem(STORAGE_KEYS.FILES)) {
-    const rootFolders: FileSystemItem[] = [
-      {
-        id: 'f1', groupId: 'general', parentId: null, name: 'Documents', type: 'folder', 
-        createdAt: new Date().toISOString(), createdBy: 'system', updatedAt: new Date().toISOString(), permissions: DEFAULT_PERMISSIONS
-      },
-      {
-        id: 'file1', groupId: 'general', parentId: 'f1', name: 'Project_Specs.pdf', type: 'pdf', size: 1024 * 1024 * 2.5,
-        createdAt: new Date().toISOString(), createdBy: 'system', updatedAt: new Date().toISOString(), permissions: DEFAULT_PERMISSIONS
-      }
-    ];
-    localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(rootFolders));
   }
 };
 
@@ -184,63 +170,35 @@ export const api = {
   },
 
   getFiles: async (groupId: string, parentId: string | null): Promise<FileSystemItem[]> => {
-    await delay(100);
-    const files: FileSystemItem[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.FILES) || '[]');
-    return files.filter(f => f.groupId === groupId && f.parentId === parentId);
+    return fileService.getFiles(groupId, parentId);
   },
 
   createFolder: async (groupId: string, parentId: string | null, name: string, creatorId: string, permissions: FolderPermissions = DEFAULT_PERMISSIONS): Promise<FileSystemItem> => {
-    await delay(200);
-    const files: FileSystemItem[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.FILES) || '[]');
-    const newFolder: FileSystemItem = {
-      id: generateId(), groupId, parentId, name, type: 'folder', 
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: creatorId, permissions
-    };
-    files.push(newFolder);
-    localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
-    return newFolder;
+    return fileService.createFolder(groupId, parentId, name, creatorId);
   },
 
   uploadFile: async (groupId: string, parentId: string | null, file: File, creatorId: string, permissions: FolderPermissions): Promise<FileSystemItem> => {
-    await delay(500);
-    const files: FileSystemItem[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.FILES) || '[]');
-    const newFile: FileSystemItem = {
-      id: generateId(), groupId, parentId, name: file.name, type: 'unknown', size: file.size, 
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: creatorId, permissions
-    };
-    files.push(newFile);
-    localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
-    return newFile;
+    return fileService.uploadFile(groupId, parentId, file, creatorId);
   },
 
   deleteFileItem: async (itemId: string): Promise<void> => {
-    await delay(200);
-    let files: FileSystemItem[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.FILES) || '[]');
-    files = files.filter(f => f.id !== itemId);
-    localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
+    return fileService.deleteFileItem(itemId);
   },
 
   updateFilePermissions: async (itemId: string, permissions: FolderPermissions): Promise<void> => {
-    await delay(200);
-    const files: FileSystemItem[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.FILES) || '[]');
-    const item = files.find(f => f.id === itemId);
-    if (item) item.permissions = permissions;
-    localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
+    // TODO: Implement custom folder permissions in future phase
+    console.warn("updateFilePermissions: RLS currently handles access. Custom perms out of scope for v1.1.9.");
   },
 
   renameItem: async (itemId: string, newName: string): Promise<void> => {
-    await delay(100);
-    const files: FileSystemItem[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.FILES) || '[]');
-    const item = files.find(f => f.id === itemId);
-    if (item) {
-      item.name = newName;
-      item.updatedAt = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
-    }
+    return fileService.renameItem(itemId, newName);
   },
 
   getFileItem: async (itemId: string): Promise<FileSystemItem | undefined> => {
-    const files: FileSystemItem[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.FILES) || '[]');
-    return files.find(f => f.id === itemId);
+    return fileService.getFileItem(itemId);
+  },
+
+  getSignedUrl: async (storagePath: string): Promise<string> => {
+    return fileService.getSignedUrl(storagePath);
   }
 };

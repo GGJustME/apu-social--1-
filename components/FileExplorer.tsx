@@ -26,6 +26,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ groupId, currentUser
   const [isNewFolderModalOpen, setIsNewFolderModalOpen] = useState(false);
   const [permissionModalItem, setPermissionModalItem] = useState<FileSystemItem | null>(null);
   const [previewItem, setPreviewItem] = useState<FileSystemItem | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   
   // Actions
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
@@ -55,16 +57,45 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ groupId, currentUser
   const canManage = (item: FileSystemItem) => item.permissions.manage.includes(userRole);
 
   const refreshFiles = async () => {
-    setLoading(true);
-    const files = await api.getFiles(groupId, currentFolderId);
-    setItems(files);
-    setLoading(false);
+    try {
+      setLoading(true);
+      setError(null);
+      const files = await api.getFiles(groupId, currentFolderId);
+      setItems(files);
+    } catch (err: any) {
+      console.error("Failed to fetch files:", err);
+      setError("Failed to load files.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     refreshFiles();
     setSelectedItem(null);
   }, [groupId, currentFolderId]);
+
+  useEffect(() => {
+    let active = true;
+    const loadPreview = async () => {
+      if (previewItem?.url) {
+        try {
+          const url = await api.getSignedUrl(previewItem.url);
+          if (active) setPreviewUrl(url);
+        } catch (err) {
+          console.error("Failed to get signed URL:", err);
+          if (active) {
+            setPreviewUrl(null);
+            setError("Failed to generate preview link.");
+          }
+        }
+      } else {
+        if (active) setPreviewUrl(null);
+      }
+    };
+    loadPreview();
+    return () => { active = false; };
+  }, [previewItem]);
 
   const handleNavigate = (folder: FileSystemItem) => {
     if (!canView(folder)) {
@@ -85,32 +116,63 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ groupId, currentUser
 
   const handleCreateFolder = async (name: string) => {
     if (!name.trim()) return;
-    // Inherit permissions from parent by default
-    await api.createFolder(groupId, currentFolderId, name, currentUser.id, currentPermissions);
-    setIsNewFolderModalOpen(false);
-    refreshFiles();
+    try {
+      setError(null);
+      // Inherit permissions from parent by default
+      await api.createFolder(groupId, currentFolderId, name, currentUser.id, currentPermissions);
+      setIsNewFolderModalOpen(false);
+      refreshFiles();
+    } catch (err: any) {
+      console.error("Failed to create folder:", err);
+      setError(err.message || "Failed to create folder.");
+    }
   };
 
   const handleUpload = async (files: FileList) => {
-    for (let i = 0; i < files.length; i++) {
-      await api.uploadFile(groupId, currentFolderId, files[i], currentUser.id, currentPermissions);
+    try {
+      setError(null);
+      setLoading(true);
+      for (let i = 0; i < files.length; i++) {
+        await api.uploadFile(groupId, currentFolderId, files[i], currentUser.id, currentPermissions);
+      }
+      setIsUploadModalOpen(false);
+      refreshFiles();
+    } catch (err: any) {
+      console.error("Upload failed:", err);
+      setError(err.message || "Upload failed.");
+    } finally {
+      setLoading(false);
     }
-    setIsUploadModalOpen(false);
-    refreshFiles();
   };
 
   const handleDelete = async (item: FileSystemItem) => {
     if (confirm(`Are you sure you want to delete "${item.name}"?`)) {
-      await api.deleteFileItem(item.id);
-      refreshFiles();
+      try {
+        setError(null);
+        await api.deleteFileItem(item.id);
+        refreshFiles();
+      } catch (err: any) {
+        console.error("Delete failed:", err);
+        if (err.message && err.message.includes("delete files inside this folder first")) {
+          alert(err.message);
+        } else {
+          setError(err.message || "Delete failed.");
+        }
+      }
     }
   };
 
   const handleRename = async () => {
     if (renameItemId && renameValue.trim()) {
-      await api.renameItem(renameItemId, renameValue);
-      setRenameItemId(null);
-      refreshFiles();
+      try {
+        setError(null);
+        await api.renameItem(renameItemId, renameValue);
+        setRenameItemId(null);
+        refreshFiles();
+      } catch (err: any) {
+        console.error("Rename failed:", err);
+        setError(err.message || "Rename failed.");
+      }
     }
   };
 
@@ -226,6 +288,12 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ groupId, currentUser
             if (canUpload) handleUpload(e.dataTransfer.files);
         }}
       >
+        {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg flex items-center justify-between">
+                <span>{error}</span>
+                <button onClick={() => setError(null)}><X size={14} /></button>
+            </div>
+        )}
         {loading ? (
             <div className="flex items-center justify-center h-full text-gray-400">Loading...</div>
         ) : filteredItems.length === 0 ? (
@@ -382,7 +450,12 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ groupId, currentUser
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg" title="Download">
+                        <button 
+                            className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg disabled:opacity-30" 
+                            title="Download"
+                            disabled={!previewUrl}
+                            onClick={() => previewUrl && window.open(previewUrl, '_blank')}
+                        >
                             <Download size={20} />
                         </button>
                         <button onClick={() => setPreviewItem(null)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
@@ -391,17 +464,49 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ groupId, currentUser
                       </div>
                   </div>
                   <div className="flex-1 bg-gray-100 flex items-center justify-center overflow-auto p-4">
-                      {previewItem.type === 'image' && previewItem.url ? (
-                          <img src={previewItem.url} alt={previewItem.name} className="max-w-full max-h-full object-contain shadow-lg" />
+                      {previewItem.type === 'image' ? (
+                          previewUrl ? (
+                              <img src={previewUrl} alt={previewItem.name} className="max-w-full max-h-full object-contain shadow-lg" />
+                          ) : (
+                              <div className="flex flex-col items-center gap-2">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-nexus-600"></div>
+                                <div className="text-gray-400 text-sm">Loading preview...</div>
+                              </div>
+                          )
                       ) : previewItem.type === 'pdf' ? (
-                          <div className="text-gray-500 flex flex-col items-center">
-                              <FileText size={64} className="mb-2" />
-                              <p>PDF Preview Placeholder</p>
-                          </div>
+                          previewUrl ? (
+                              <iframe src={previewUrl} className="w-full h-full border-none shadow-lg bg-white" title={previewItem.name} />
+                          ) : (
+                               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-nexus-600"></div>
+                          )
+                      ) : previewItem.type === 'video' ? (
+                           previewUrl ? (
+                               <video controls src={previewUrl} className="max-w-full max-h-full shadow-lg" />
+                           ) : (
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-nexus-600"></div>
+                           )
+                      ) : previewItem.type === 'audio' ? (
+                            previewUrl ? (
+                                <div className="bg-white p-8 rounded-xl shadow-lg flex flex-col items-center gap-4">
+                                    <Music size={48} className="text-pink-500" />
+                                    <audio controls src={previewUrl} className="w-64" />
+                                    <p className="text-sm font-medium">{previewItem.name}</p>
+                                </div>
+                            ) : (
+                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-nexus-600"></div>
+                            )
                       ) : (
-                          <div className="text-gray-500 flex flex-col items-center">
-                              <Box size={64} className="mb-2" />
-                              <p>Preview not available for this file type</p>
+                          <div className="text-gray-500 flex flex-col items-center gap-4">
+                              <Box size={64} className="mb-2 opacity-20" />
+                              <div className="text-center px-4">
+                                  <p className="font-medium text-gray-700">Preview not available for this file type</p>
+                                  <p className="text-xs text-gray-400 mt-1">You can still open or download it below</p>
+                              </div>
+                              {previewUrl && (
+                                  <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-nexus-600 text-white rounded-lg text-sm font-medium hover:bg-nexus-700 transition-colors flex items-center gap-2 shadow-sm">
+                                      <Download size={16} /> Open / Download
+                                  </a>
+                              )}
                           </div>
                       )}
                   </div>
