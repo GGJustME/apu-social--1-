@@ -169,9 +169,14 @@ const App: React.FC = () => {
 
   const handleCreatePost = async (content: string) => {
     if (!currentUser) return;
-    const newPost = await api.createPost(activeGroupId, currentUser.id, content);
-    setPosts(prev => [newPost, ...prev]);
-    api.getLeaderboard(activeGroupId).then(setLeaderboardData);
+    try {
+      const newPost = await api.createPost(activeGroupId, currentUser.id, content);
+      setPosts(prev => [newPost, ...prev]);
+      api.getLeaderboard(activeGroupId).then(setLeaderboardData);
+    } catch (err: any) {
+      console.error("Failed to create post:", err);
+      alert(err.message || "Failed to create post.");
+    }
   };
 
   const handleCreateGroup = async (name: string, isPrivate: boolean, type: 'social' | 'work') => {

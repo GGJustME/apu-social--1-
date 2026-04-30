@@ -3,11 +3,11 @@ import { MOCK_QUEUE } from '../constants';
 import { groupService } from './groupService';
 import { chatService } from './chatService';
 import { fileService } from './fileService';
+import { postService } from './postService';
 
 const STORAGE_KEYS = {
   USERS: 'nexus_users',
-  MESSAGES: 'nexus_messages',
-  POSTS: 'nexus_posts'
+  MESSAGES: 'nexus_messages'
 };
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -38,9 +38,6 @@ const initializeStorage = () => {
 
   if (!localStorage.getItem(STORAGE_KEYS.MESSAGES)) {
     localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.POSTS)) {
-    localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify([]));
   }
 };
 
@@ -117,29 +114,15 @@ export const api = {
   },
 
   getPosts: async (groupId: string): Promise<Post[]> => {
-    await delay(200);
-    const allPosts: Post[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.POSTS) || '[]');
-    return allPosts
-        .filter(p => (p as any).groupId === groupId || !(p as any).groupId)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return postService.getPosts(groupId);
   },
 
   createPost: async (groupId: string, authorId: string, content: string): Promise<Post> => {
-      await delay(300);
-      const allPosts: Post[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.POSTS) || '[]');
-      const newPost: Post = {
-          id: generateId(),
-          authorId,
-          content,
-          likes: 0,
-          comments: 0,
-          timestamp: new Date().toISOString(),
-          // @ts-ignore
-          groupId: groupId 
-      };
-      allPosts.push(newPost);
-      localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(allPosts));
-      return newPost;
+    return postService.createPost(groupId, authorId, content);
+  },
+
+  deletePost: async (postId: string): Promise<void> => {
+    return postService.deletePost(postId);
   },
 
   getLeaderboard: async (groupId: string): Promise<LeaderboardData> => {
