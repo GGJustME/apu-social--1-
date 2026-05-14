@@ -4,6 +4,7 @@ import { groupService } from './groupService';
 import { chatService } from './chatService';
 import { fileService } from './fileService';
 import { postService } from './postService';
+import { adminService } from './adminService';
 
 const STORAGE_KEYS = {
   USERS: 'nexus_users',
@@ -183,5 +184,30 @@ export const api = {
 
   getSignedUrl: async (storagePath: string): Promise<string> => {
     return fileService.getSignedUrl(storagePath);
+  },
+
+  // Admin Methods
+  getUsers: async (): Promise<User[]> => {
+    return adminService.getUsers();
+  },
+
+  getUsersByStatus: async (status: 'active' | 'pending' | 'suspended'): Promise<User[]> => {
+    return adminService.getUsersByStatus(status);
+  },
+
+  updateUserStatus: async (userId: string, status: 'active' | 'pending' | 'suspended'): Promise<User> => {
+    return adminService.updateUserStatus(userId, status);
+  },
+
+  approveUser: async (userId: string): Promise<User> => {
+    return adminService.approveUser(userId);
+  },
+
+  suspendUser: async (userId: string): Promise<User> => {
+    return adminService.suspendUser(userId);
+  },
+
+  reactivateUser: async (userId: string): Promise<User> => {
+    return adminService.reactivateUser(userId);
   }
 };

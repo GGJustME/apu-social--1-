@@ -2,7 +2,7 @@
 import * as React from 'react';
 import { useState } from 'react';
 import { Group, User } from '../types';
-import { Plus, Settings, Volume2, User as UserIcon, X, Check, Briefcase, LogOut, Search } from 'lucide-react';
+import { Plus, Settings, Volume2, User as UserIcon, X, Check, Briefcase, LogOut, Search, Shield } from 'lucide-react';
 
 interface SidebarProps {
   groups: Group[];
@@ -10,6 +10,7 @@ interface SidebarProps {
   onSelectGroup: (id: string) => void;
   currentUser: User;
   onOpenProfile: () => void;
+  onOpenAdminPanel: () => void;
   onCreateGroup: (name: string, isPrivate: boolean, type: 'social' | 'work') => void;
   onOpenJoinModal: () => void;
   onLogout: () => void;
@@ -21,6 +22,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectGroup, 
   currentUser,
   onOpenProfile,
+  onOpenAdminPanel,
   onCreateGroup,
   onOpenJoinModal,
   onLogout
@@ -176,6 +178,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
           
           <div className="hidden md:flex ml-auto items-center gap-1">
+            {currentUser.role === 'admin' && (
+                <button 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenAdminPanel();
+                    }}
+                    className="p-1.5 text-nexus-500 hover:text-white hover:bg-slate-800 rounded-md transition-all"
+                    title="Admin Panel"
+                >
+                    <Shield size={16} />
+                </button>
+            )}
             <button 
                 onClick={(e) => {
                     e.stopPropagation();

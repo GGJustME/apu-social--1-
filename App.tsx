@@ -12,6 +12,7 @@ import { AuthScreen } from './components/AuthScreen';
 import { FileExplorer } from './components/FileExplorer';
 import { JoinGroupModal } from './components/JoinGroupModal';
 import { InviteLinkModal } from './components/InviteLinkModal';
+import { AdminPanelModal } from './components/AdminPanelModal';
 import { api } from './services/api';
 import { supabase } from './services/supabaseClient';
 import { authService } from './services/authService';
@@ -45,6 +46,7 @@ const App: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [voiceParticipants, setVoiceParticipants] = useState<User[]>([]);
   const [isMuted, setIsMuted] = useState(false);
 
@@ -333,6 +335,7 @@ const App: React.FC = () => {
         }}
         currentUser={currentUser}
         onOpenProfile={() => setIsProfileOpen(true)}
+        onOpenAdminPanel={() => setIsAdminPanelOpen(true)}
         onCreateGroup={handleCreateGroup}
         onOpenJoinModal={() => setIsJoinModalOpen(true)}
         onLogout={handleLogout}
@@ -472,6 +475,14 @@ const App: React.FC = () => {
           onClose={() => setIsInviteModalOpen(false)}
           groupId={activeGroup.id}
           groupName={activeGroup.name}
+        />
+      )}
+
+      {/* Admin Panel Modal */}
+      {currentUser.role === 'admin' && (
+        <AdminPanelModal 
+          isOpen={isAdminPanelOpen}
+          onClose={() => setIsAdminPanelOpen(false)}
         />
       )}
     </div>
